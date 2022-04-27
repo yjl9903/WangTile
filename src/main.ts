@@ -13,7 +13,11 @@ const WIDTH = 50,
 const ROW = data.length,
   COLUMN = data[0].length;
 
-const canvas = new fabric.StaticCanvas('board', { width: WIDTH * COLUMN, height: HEIGHT * ROW });
+const canvas = new fabric.StaticCanvas('board', {
+  width: WIDTH * COLUMN,
+  height: HEIGHT * ROW,
+  backgroundColor: 'white'
+});
 
 function renderBoard() {
   const COLOR = ['rgb(80,198,81)', 'rgb(239,222,76)', 'rgb(249,145,65)', 'rgb(64,77,141)'];
@@ -22,33 +26,37 @@ function renderBoard() {
       const tr0 = new fabric.Triangle({
         top: i * HEIGHT + HEIGHT / 2,
         left: j * WIDTH + WIDTH,
-        fill: COLOR[data[i][j][0]],
+        angle: 180,
         width: WIDTH,
         height: HEIGHT / 2,
-        angle: 180
+        fill: COLOR[data[i][j][0]],
+        borderColor: 'white'
       });
       const tr1 = new fabric.Triangle({
         top: i * HEIGHT + HEIGHT,
         left: j * WIDTH + WIDTH / 2,
-        fill: COLOR[data[i][j][1]],
+        angle: 270,
         width: WIDTH,
         height: HEIGHT / 2,
-        angle: 270
+        fill: COLOR[data[i][j][1]],
+        borderColor: 'white'
       });
       const tr2 = new fabric.Triangle({
         top: i * HEIGHT + HEIGHT / 2,
         left: j * WIDTH,
-        fill: COLOR[data[i][j][2]],
         width: WIDTH,
-        height: HEIGHT / 2
+        height: HEIGHT / 2,
+        fill: COLOR[data[i][j][2]],
+        borderColor: 'white'
       });
       const tr3 = new fabric.Triangle({
         top: i * HEIGHT,
         left: j * WIDTH + WIDTH / 2,
-        fill: COLOR[data[i][j][3]],
+        angle: 90,
         width: WIDTH,
         height: HEIGHT / 2,
-        angle: 90
+        fill: COLOR[data[i][j][3]],
+        borderColor: 'white'
       });
       canvas.add(tr0, tr1, tr2, tr3);
     }
