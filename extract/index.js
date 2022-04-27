@@ -23,7 +23,9 @@ function getColor({ r, g, b }) {
 async function process() {
   const image = await Jimp.read('./extract/pic.png');
 
-  const ans = new Array(8).fill(null).map(() => new Array(12).fill(null).map(() => [-1, -1, -1, -1]));
+  const ans = new Array(8)
+    .fill(null)
+    .map(() => new Array(12).fill(null).map(() => [-1, -1, -1, -1]));
 
   for (let i = 0; i < 16; i++) {
     for (let j = 0; j < 12; j++) {
@@ -57,10 +59,10 @@ async function process() {
 
   for (let i = 0; i < 8; i++) {
     const t = (c) => ['G', 'Y', 'O', 'B'][c];
-    console.log(ans[i].map(c => ` ${t(c[0])} `).join(' '));
-    console.log(ans[i].map(c => `${t(c[3])} ${t(c[1])}`).join(' '));
-    console.log(ans[i].map(c => ` ${t(c[2])} `).join(' '));
-    console.log()
+    console.log(ans[i].map((c) => ` ${t(c[0])} `).join(' '));
+    console.log(ans[i].map((c) => `${t(c[3])} ${t(c[1])}`).join(' '));
+    console.log(ans[i].map((c) => ` ${t(c[2])} `).join(' '));
+    console.log();
   }
 
   // for (let i = 0; i < 8; i++) {
@@ -73,11 +75,13 @@ async function process() {
 }
 
 function print(raw) {
-  const ans = new Array(8).fill(null).map(() => new Array(12).fill(null).map(() => [-1, -1, -1, -1]));
+  const ans = new Array(8)
+    .fill(null)
+    .map(() => new Array(12).fill(null).map(() => [-1, -1, -1, -1]));
   const lines = raw.split('\n').slice(1);
   for (let i = 0; i < 8; i++) {
     for (let j = 0; j < 12; j++) {
-      const t = (c) => ({ G: 0, Y: 1, O: 2, B: 3 })[c];
+      const t = (c) => ({ G: 0, Y: 1, O: 2, B: 3 }[c]);
       ans[i][j][0] = t(lines[i * 4][j * 4 + 1]);
       ans[i][j][1] = t(lines[i * 4 + 1][j * 4 + 2]);
       ans[i][j][2] = t(lines[i * 4 + 2][j * 4 + 1]);
@@ -86,11 +90,11 @@ function print(raw) {
   }
 
   for (let i = 0; i < 8; i++) {
-    const t = (c) => [bgLightGreen(' '), bgYellow(' '), bgMagenta(' '), bgBlue(' ')][c]
-    console.log(ans[i].map(c => ` ${t(c[0])} `).join(' '));
-    console.log(ans[i].map(c => `${t(c[3])} ${t(c[1])}`).join(' '));
-    console.log(ans[i].map(c => ` ${t(c[2])} `).join(' '));
-    console.log()
+    const t = (c) => [bgLightGreen(' '), bgYellow(' '), bgMagenta(' '), bgBlue(' ')][c];
+    console.log(ans[i].map((c) => ` ${t(c[0])} `).join(' '));
+    console.log(ans[i].map((c) => `${t(c[3])} ${t(c[1])}`).join(' '));
+    console.log(ans[i].map((c) => ` ${t(c[2])} `).join(' '));
+    console.log();
   }
   writeFileSync('./data.json', JSON.stringify(ans), 'utf-8');
 }
@@ -128,4 +132,3 @@ B O Y B O G Y Y G G B Y G O Y Y B G O B O O G Y
  O   Y   B   Y   G   O   O   B   B   O   Y   G
 O Y O Y G G O Y B O B B B G O Y Y B G B B G O G
  G   G   Y   Y   O   B   Y   G   B   O   G   Y`);
- 
