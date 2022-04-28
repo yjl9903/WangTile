@@ -1,6 +1,7 @@
 const { writeFileSync } = require('fs');
 const Jimp = require('jimp');
 const { bgLightGreen, bgYellow, bgMagenta, bgBlue } = require('kolorist');
+const execa = require('execa');
 
 function getColor({ r, g, b }) {
   const abs = (x, y) => (x - y) * (x - y);
@@ -104,59 +105,103 @@ function print(raw) {
   writeFileSync('./data.json', JSON.stringify(ans), 'utf-8');
 }
 
-function genSAT(raw) {
-  const ans = parse(raw);
+async function genSAT(raw) {
+  const H = 8;
+  const W = 8;
+
+  const parsed = parse(raw);
+  const ans = [].concat(...parsed);
   const clause = [];
   const add = (...vars) => {
     clause.push(vars);
   };
-  const get = (i, j, d, neg = false) => {
-    const id = (i * 12 + j) * 4 + d;
-    return !neg ? `${id + 1}` : `-${id + 1}`;
-  };
-  const H = 1;
-  const W = 12;
-  // Row same
+
   for (let i = 0; i < H; i++) {
-    for (let j = 0; j + 1 < W; j++) {
-      // left  counterclockwise turn d1
-      // right counterclockwise turn d2
-      const set = new Set();
-      for (let d1 = 0; d1 < 4; d1++) {
-        for (let d2 = 0; d2 < 4; d2++) {
-          const c1 = ans[i][j][(1 + d1) % 4];
-          const c2 = ans[i][j + 1][(3 + d2) % 4];
-          if (c1 == c2) {
-            set.add((1 << (d2 + 4)) | (1 << d1));
-          }
-        }
+    for (let j = 0; j < W; j++) {
+      const list = [];
+      const base = (i * W + j) * ans.length + 1;
+      for (let k = 0; k < ans.length; k++) {
+        list.push(base + k);
       }
-      for (let s = 0; s < 2 ** 8; s++) {
-        const x0 = (s >> 0) & 1;
-        const x1 = (s >> 1) & 1;
-        const x2 = (s >> 2) & 1;
-        const x3 = (s >> 3) & 1;
-        const y0 = (s >> 4) & 1;
-        const y1 = (s >> 5) & 1;
-        const y2 = (s >> 6) & 1;
-        const y3 = (s >> 7) & 1;
-        if (!set.has(s)) {
-          add(
-            get(i, j, 0, x0),
-            get(i, j, 1, x1),
-            get(i, j, 2, x2),
-            get(i, j, 3, x3),
-            get(i, j + 1, 0, y0),
-            get(i, j + 1, 1, y1),
-            get(i, j + 1, 2, y2),
-            get(i, j + 1, 3, y3)
-          );
+      add(...list);
+      for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+          add(-list[i], -list[j]);
         }
       }
     }
   }
-  const content = clause.map((c) => c.join(' ') + ' 0').join('\n');
+  for (let i = 0; i < H; i++) {
+    for (let j = 0; j < W; j++) {
+      if (j + 1 === W) continue;
+      const base = (i * W + j) * ans.length + 1;
+      for (let x = 0; x < ans.length; x++) {
+        const clause = [-(base + x)];
+        for (let y = x + 1; y < ans.length; y++) {
+          if (ans[x][1] == ans[y][3]) {
+            clause.push(base + ans.length + y);
+          }
+        }
+        add(...clause);
+      }
+    }
+  }
+  for (let i = 0; i < H; i++) {
+    if (i + 1 === H) continue;
+    for (let j = 0; j < W; j++) {
+      const base = (i * W + j) * ans.length + 1;
+      for (let x = 0; x < ans.length; x++) {
+        const clause = [-(base + x)];
+        for (let y = x + 1; y < ans.length; y++) {
+          if (ans[x][2] == ans[y][0]) {
+            clause.push(base + W * ans.length + y);
+          }
+        }
+        add(...clause);
+      }
+    }
+  }
+  const content =
+    `p cnf ${H * W * ans.length} ${clause.length}\n` +
+    clause.map((c) => c.join(' ') + ' 0').join('\n');
   writeFileSync('tile.cnf', content, 'utf-8');
+
+  try {
+    await execa('varisat', ['tile.cnf']);
+  } catch (err) {
+    const { stdout } = err;
+    const result = stdout.split('\n').slice(-1)[0].split(' ').slice(1, -1);
+    if (result.length === H * W * ans.length) {
+      const set = new Set(result.map((v) => +v));
+      const map = [];
+      const used = new Set();
+      for (let i = 0; i < H; i++) {
+        const row = [];
+        map.push(row);
+        for (let j = 0; j < W; j++) {
+          const base = (i * W + j) * ans.length;
+          const choice = [];
+          for (let k = 0; k < ans.length; k++) {
+            if (set.has(base + k + 1)) {
+              choice.push(k);
+            } else if (!set.has(-base - k - 1)) {
+              console.log('Fail');
+            }
+          }
+          if (choice.length === 1) {
+            used.add(choice[0]);
+            row.push(ans[choice[0]]);
+          } else {
+            console.log(`Fail at L${i}, C${j}`);
+          }
+        }
+      }
+      console.log(used.size);
+      writeFileSync('./answer.json', JSON.stringify(map), 'utf-8');
+    } else {
+      console.log(stdout);
+    }
+  }
 }
 
 const result = `
