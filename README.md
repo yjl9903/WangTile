@@ -1,6 +1,6 @@
 # Wang Tile
 
-![answer](./public/answer.png)
+<img src="./public/answer.png" alt="answer" style="width: 50%;">
 
 ## Prerequisite
 
