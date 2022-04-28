@@ -74,7 +74,7 @@ async function process() {
   // }
 }
 
-function print(raw) {
+function parse(raw) {
   const ans = new Array(8)
     .fill(null)
     .map(() => new Array(12).fill(null).map(() => [-1, -1, -1, -1]));
@@ -88,6 +88,11 @@ function print(raw) {
       ans[i][j][3] = t(lines[i * 4 + 1][j * 4]);
     }
   }
+  return ans;
+}
+
+function print(raw) {
+  const ans = parse(raw);
 
   for (let i = 0; i < 8; i++) {
     const t = (c) => [bgLightGreen(' '), bgYellow(' '), bgMagenta(' '), bgBlue(' ')][c];
@@ -99,8 +104,62 @@ function print(raw) {
   writeFileSync('./data.json', JSON.stringify(ans), 'utf-8');
 }
 
-// process();
-print(`
+function genSAT(raw) {
+  const ans = parse(raw);
+  const clause = [];
+  const add = (...vars) => {
+    clause.push(vars);
+  };
+  const get = (i, j, d, neg = false) => {
+    const id = (i * 12 + j) * 4 + d;
+    return !neg ? `${id + 1}` : `-${id + 1}`;
+  };
+  const H = 1;
+  const W = 12;
+  // Row same
+  for (let i = 0; i < H; i++) {
+    for (let j = 0; j + 1 < W; j++) {
+      // left  counterclockwise turn d1
+      // right counterclockwise turn d2
+      const set = new Set();
+      for (let d1 = 0; d1 < 4; d1++) {
+        for (let d2 = 0; d2 < 4; d2++) {
+          const c1 = ans[i][j][(1 + d1) % 4];
+          const c2 = ans[i][j + 1][(3 + d2) % 4];
+          if (c1 == c2) {
+            set.add((1 << (d2 + 4)) | (1 << d1));
+          }
+        }
+      }
+      for (let s = 0; s < 2 ** 8; s++) {
+        const x0 = (s >> 0) & 1;
+        const x1 = (s >> 1) & 1;
+        const x2 = (s >> 2) & 1;
+        const x3 = (s >> 3) & 1;
+        const y0 = (s >> 4) & 1;
+        const y1 = (s >> 5) & 1;
+        const y2 = (s >> 6) & 1;
+        const y3 = (s >> 7) & 1;
+        if (!set.has(s)) {
+          add(
+            get(i, j, 0, x0),
+            get(i, j, 1, x1),
+            get(i, j, 2, x2),
+            get(i, j, 3, x3),
+            get(i, j + 1, 0, y0),
+            get(i, j + 1, 1, y1),
+            get(i, j + 1, 2, y2),
+            get(i, j + 1, 3, y3)
+          );
+        }
+      }
+    }
+  }
+  const content = clause.map((c) => c.join(' ') + ' 0').join('\n');
+  writeFileSync('tile.cnf', content, 'utf-8');
+}
+
+const result = `
  O   G   B   G   Y   Y   Y   G   B   B   B   O 
 Y O O G B B O O O O G O G O G Y G O O Y Y B G B
  G   B   O   G   G   G   B   Y   O   Y   B   G
@@ -131,4 +190,8 @@ B O Y B O G Y Y G G B Y G O Y Y B G O B O O G Y
 
  O   Y   B   Y   G   O   O   B   B   O   Y   G
 O Y O Y G G O Y B O B B B G O Y Y B G B B G O G
- G   G   Y   Y   O   B   Y   G   B   O   G   Y`);
+ G   G   Y   Y   O   B   Y   G   B   O   G   Y`;
+
+// process();
+// print(result);
+genSAT(result);
