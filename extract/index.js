@@ -1,6 +1,6 @@
-const { writeFileSync } = require('fs');
+const { writeFileSync, createWriteStream, readFileSync } = require('fs');
+const { lightGreen, bgLightGreen, bgYellow, bgMagenta, bgBlue } = require('kolorist');
 const Jimp = require('jimp');
-const { bgLightGreen, bgYellow, bgMagenta, bgBlue } = require('kolorist');
 const execa = require('execa');
 
 function getColor({ r, g, b }) {
@@ -105,16 +105,42 @@ function print(raw) {
   writeFileSync('./data.json', JSON.stringify(ans), 'utf-8');
 }
 
-async function genSAT(raw) {
-  const H = 8;
-  const W = 8;
+const H = 8;
+const W = 12;
 
+async function genSAT(raw) {
   const parsed = parse(raw);
-  const ans = [].concat(...parsed);
+  const ans = [].concat(
+    ...[].concat(...parsed).map(([a, b, c, d]) => {
+      return [
+        [a, b, c, d],
+        [b, c, d, a],
+        [c, d, a, b],
+        [d, a, b, c]
+      ];
+    })
+  );
+
   const clause = [];
   const add = (...vars) => {
     clause.push(vars);
   };
+
+  for (let k = 0; k < ans.length; k += 4) {
+    const list = [];
+    for (let i = 0; i < H; i++) {
+      for (let j = 0; j < W; j++) {
+        const base = (i * W + j) * ans.length + k + 1;
+        list.push(base, base + 1, base + 2, base + 3);
+      }
+    }
+    add(...list);
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        add(-list[i], -list[j]);
+      }
+    }
+  }
 
   for (let i = 0; i < H; i++) {
     for (let j = 0; j < W; j++) {
@@ -161,47 +187,79 @@ async function genSAT(raw) {
       }
     }
   }
-  const content =
-    `p cnf ${H * W * ans.length} ${clause.length}\n` +
-    clause.map((c) => c.join(' ') + ' 0').join('\n');
-  writeFileSync('tile.cnf', content, 'utf-8');
+
+  const stream = createWriteStream('tile.cnf');
+  stream.write(`p cnf ${H * W * ans.length} ${clause.length}\n`, 'utf-8');
+  for (let i = 0; i < clause.length; i += 100000) {
+    const content = clause
+      .slice(i, i + 100000)
+      .map((c) => c.join(' ') + ' 0\n')
+      .join('');
+    await new Promise((res, rej) => {
+      stream.write(content, 'utf-8', (err) => {
+        if (err) rej(err);
+        else res();
+      });
+    });
+  }
+  await new Promise((res) => stream.end(() => res()));
+  console.log(`${lightGreen('OK')} tile.cnf`);
 
   try {
     await execa('varisat', ['tile.cnf']);
   } catch (err) {
-    const { stdout } = err;
-    const result = stdout.split('\n').slice(-1)[0].split(' ').slice(1, -1);
-    if (result.length === H * W * ans.length) {
-      const set = new Set(result.map((v) => +v));
-      const map = [];
-      const used = new Set();
-      for (let i = 0; i < H; i++) {
-        const row = [];
-        map.push(row);
-        for (let j = 0; j < W; j++) {
-          const base = (i * W + j) * ans.length;
-          const choice = [];
-          for (let k = 0; k < ans.length; k++) {
-            if (set.has(base + k + 1)) {
-              choice.push(k);
-            } else if (!set.has(-base - k - 1)) {
-              console.log('Fail');
-            }
-          }
-          if (choice.length === 1) {
-            used.add(choice[0]);
-            row.push(ans[choice[0]]);
-          } else {
-            console.log(`Fail at L${i}, C${j}`);
+    getAnswer(ans, err.stdout);
+  }
+}
+
+function getAnswer(ans, stdout) {
+  const result = stdout.split('\n').slice(-1)[0].split(' ').slice(1, -1);
+  if (result.length === H * W * ans.length) {
+    const set = new Set(result.map((v) => +v));
+    const map = [];
+    const used = new Set();
+    for (let i = 0; i < H; i++) {
+      const row = [];
+      map.push(row);
+      for (let j = 0; j < W; j++) {
+        const base = (i * W + j) * ans.length;
+        const choice = [];
+        for (let k = 0; k < ans.length; k++) {
+          if (set.has(base + k + 1)) {
+            choice.push(k);
+          } else if (!set.has(-base - k - 1)) {
+            console.log('Fail');
           }
         }
+        if (choice.length === 1) {
+          used.add(choice[0]);
+          row.push(ans[choice[0]]);
+        } else {
+          console.log(`Fail at L${i}, C${j}`);
+        }
       }
-      console.log(used.size);
-      writeFileSync('./answer.json', JSON.stringify(map), 'utf-8');
-    } else {
-      console.log(stdout);
     }
+    console.log(`${lightGreen('OK')} solved (use: ${used.size})`);
+    writeFileSync('./answer.json', JSON.stringify(map), 'utf-8');
+  } else {
+    console.log(stdout);
   }
+}
+
+function solve(raw) {
+  const parsed = parse(raw);
+  const ans = [].concat(
+    ...[].concat(...parsed).map(([a, b, c, d]) => {
+      return [
+        [a, b, c, d],
+        [b, c, d, a],
+        [c, d, a, b],
+        [d, a, b, c]
+      ];
+    })
+  );
+  const stdout = readFileSync('ans.cnf', 'utf-8');
+  getAnswer(ans, stdout);
 }
 
 const result = `
@@ -240,3 +298,4 @@ O Y O Y G G O Y B O B B B G O Y Y B G B B G O G
 // process();
 // print(result);
 genSAT(result);
+// solve(result);
