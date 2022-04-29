@@ -1,6 +1,8 @@
 # Wang Tile
 
-<img src="./public/answer.png" alt="answer" style="width: 50%;">
+<p align="center">
+  <img src="./public/answer.png" alt="answer" style="width: 75%;">
+</p>
 
 ## Prerequisite
 
